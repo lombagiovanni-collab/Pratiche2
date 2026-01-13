@@ -1,0 +1,8 @@
+{
+  "name": "Pratiche 2026",
+  "description": "Un gestionale professionale per team legali con gestione task, scadenze, insight e strumenti di pricing.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
