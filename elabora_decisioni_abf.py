@@ -22,14 +22,18 @@ from pathlib import Path
 from datetime import datetime
 
 try:
-    import fitz  # PyMuPDF
+    import pymupdf as fitz  # PyMuPDF >= 1.24 (nome nuovo)
     PDF_BACKEND = "pymupdf"
 except ImportError:
     try:
-        import pdfplumber
-        PDF_BACKEND = "pdfplumber"
+        import fitz  # PyMuPDF < 1.24 (nome vecchio)
+        PDF_BACKEND = "pymupdf"
     except ImportError:
-        raise ImportError("Installa PyMuPDF: pip3 install PyMuPDF")
+        try:
+            import pdfplumber
+            PDF_BACKEND = "pdfplumber"
+        except ImportError:
+            raise ImportError("Installa PyMuPDF: pip3 install PyMuPDF")
 
 from docx import Document
 from docx.shared import Pt, RGBColor
