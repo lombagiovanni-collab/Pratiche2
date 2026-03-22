@@ -149,23 +149,40 @@ def summarize_with_claude(text: str, collegio: str, numero: str) -> str:
         prompt = f"""Sei un consulente legale specializzato in diritto bancario e finanziario.
 Analizza la seguente decisione ABF (Arbitro Bancario Finanziario) del Collegio di {collegio}, n. {numero}.
 
-Produci una sintesi professionale e concisa con queste sezioni:
+Produci una sintesi professionale e completa articolata ESATTAMENTE nelle seguenti cinque sezioni,
+nell'ordine indicato. Per ogni sezione fornisci un contenuto ricco e dettagliato:
 
-**PARTI**: Ricorrente vs. Intermediario
-**OGGETTO**: Controversia in breve (1-2 righe)
-**FATTI**: Fatti rilevanti (3-5 punti)
-**QUESTIONE GIURIDICA**: Norma o principio applicato
-**DECISIONE**: Esito (accolta / rigettata / parzialmente accolta) e motivazione sintetica
-**PRECEDENTI/NOTE**: Eventuali riferimenti utili o massima ricavabile
+**PARTI**
+Indica con precisione: nome/descrizione del ricorrente (es. "Consumatore, titolare di conto corrente presso…")
+e nome dell'intermediario resistente (banca/finanziaria/intermediario). Se presenti, indica anche terze parti.
 
-Sii conciso ma completo. Usa linguaggio tecnico-giuridico.
+**MOTIVI DI RICORSO**
+Esponi in modo analitico le doglianze del ricorrente: cosa contesta, quali comportamenti dell'intermediario
+ritiene illegittimi o scorretti, quali richieste avanza (restituzione somme, risarcimento, adempimento, ecc.).
+Usa un elenco puntato se i motivi sono più di uno.
+
+**DIFESA DELLA BANCA**
+Riporta le argomentazioni difensive dell'intermediario: come ha risposto alle contestazioni, quali giustificazioni
+ha fornito, quali eccezioni processuali o sostanziali ha sollevato, quali prove o documenti ha prodotto.
+
+**ARGOMENTAZIONI DEL COLLEGIO**
+Illustra il ragionamento giuridico dell'organo decidente: quali norme (TUB, TUF, Codice del Consumo,
+Disposizioni Banca d'Italia, ecc.) ha applicato, come ha valutato le prove, quali precedenti ABF o
+orientamenti ha richiamato, come ha risolto le questioni controverse. Questo è il cuore della decisione.
+
+**DECISIONE**
+Indica l'esito (accolta / rigettata / parzialmente accolta / inammissibile) e riporta il dispositivo
+in modo preciso: importi riconosciuti, obblighi imposti all'intermediario, termini di adempimento,
+spese. Aggiungi una "massima" sintetica ricavabile dalla decisione (1-2 righe).
+
+Usa linguaggio tecnico-giuridico. Non tralasciare elementi rilevanti.
 
 --- TESTO DECISIONE ---
-{text[:12000]}
+{text[:18000]}
 """
         message = client.messages.create(
             model="claude-opus-4-6",
-            max_tokens=1500,
+            max_tokens=2500,
             messages=[{"role": "user", "content": prompt}]
         )
         return message.content[0].text
@@ -178,41 +195,57 @@ Sii conciso ma completo. Usa linguaggio tecnico-giuridico.
 
 def summarize_fallback(text: str) -> str:
     """
-    Sintesi automatica senza AI: estrae sezioni chiave del documento ABF.
+    Sintesi automatica senza AI: estrae sezioni chiave del documento ABF
+    nelle 5 sezioni standard (parti, motivi, difesa banca, argomentazioni, decisione).
     """
     lines = [l.strip() for l in text.split("\n") if l.strip()]
+
     sections = {
-        "PARTI": [],
-        "OGGETTO": [],
-        "DECISIONE": [],
+        "PARTI":                 [],
+        "MOTIVI DI RICORSO":     [],
+        "DIFESA DELLA BANCA":    [],
+        "ARGOMENTAZIONI DEL COLLEGIO": [],
+        "DECISIONE":             [],
     }
 
-    keywords_parti = ["ricorrente", "resistente", "intermediario", "banca", "s.p.a.", "s.r.l."]
-    keywords_oggetto = ["oggetto", "controversia", "domanda", "questione", "richiesta"]
-    keywords_decisione = ["decide", "rigetta", "accoglie", "dichiara", "condanna",
-                          "il collegio", "per questi motivi"]
+    kw_parti      = ["ricorrente", "resistente", "intermediario", "banca", "s.p.a.", "s.r.l.",
+                     "finanziaria", "società", "cliente", "correntista", "mutuatario"]
+    kw_motivi     = ["chiede", "contesta", "lamenta", "deduce", "afferma", "sostiene",
+                     "ritiene", "domanda", "ricorso", "motivo", "doglianza", "richiesta",
+                     "illegittim", "scorrett", "inadempiment"]
+    kw_difesa     = ["resistente afferma", "resistente sostiene", "resistente eccepisce",
+                     "la banca", "l'intermediario", "eccepisce", "replica", "controdeduce",
+                     "si oppone", "produce", "documenta", "contesta", "difende"]
+    kw_argomenti  = ["il collegio osserva", "il collegio rileva", "il collegio ritiene",
+                     "l'organo", "in diritto", "secondo il collegio", "giurisprudenza",
+                     "normativa", "disposizioni", "art.", "comma", "tub", "tuf",
+                     "codice del consumo", "banca d'italia", "orientamento"]
+    kw_decisione  = ["per questi motivi", "il collegio decide", "il collegio dispone",
+                     "accoglie", "rigetta", "dichiara", "condanna", "inammissibile",
+                     "parzialmente", "dispone", "ordina", "entro", "giorni"]
 
-    for line in lines[:80]:
+    for line in lines:
         ll = line.lower()
-        if any(k in ll for k in keywords_parti) and len(sections["PARTI"]) < 3:
+        if any(k in ll for k in kw_parti) and len(sections["PARTI"]) < 4:
             sections["PARTI"].append(line)
-        if any(k in ll for k in keywords_oggetto) and len(sections["OGGETTO"]) < 3:
-            sections["OGGETTO"].append(line)
-        if any(k in ll for k in keywords_decisione) and len(sections["DECISIONE"]) < 4:
+        if any(k in ll for k in kw_motivi) and len(sections["MOTIVI DI RICORSO"]) < 5:
+            sections["MOTIVI DI RICORSO"].append(line)
+        if any(k in ll for k in kw_difesa) and len(sections["DIFESA DELLA BANCA"]) < 5:
+            sections["DIFESA DELLA BANCA"].append(line)
+        if any(k in ll for k in kw_argomenti) and len(sections["ARGOMENTAZIONI DEL COLLEGIO"]) < 6:
+            sections["ARGOMENTAZIONI DEL COLLEGIO"].append(line)
+        if any(k in ll for k in kw_decisione) and len(sections["DECISIONE"]) < 5:
             sections["DECISIONE"].append(line)
 
     summary_parts = []
     for title, items in sections.items():
+        summary_parts.append(f"**{title}**")
         if items:
-            summary_parts.append(f"**{title}**")
             for item in items:
                 summary_parts.append(f"  {item}")
-            summary_parts.append("")
-
-    if not any(sections.values()):
-        # Ultimo fallback: prime 20 righe significative
-        summary_parts = ["**ESTRATTO AUTOMATICO**", ""]
-        summary_parts += lines[:20]
+        else:
+            summary_parts.append("  (non rilevato automaticamente – consultare il testo originale)")
+        summary_parts.append("")
 
     return "\n".join(summary_parts)
 
